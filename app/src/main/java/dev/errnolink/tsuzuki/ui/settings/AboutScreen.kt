@@ -7,6 +7,20 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Public
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import dev.errnolink.tsuzuki.update.AppDownloadWorker
+import dev.errnolink.tsuzuki.update.AppUpdateChecker
+import dev.errnolink.tsuzuki.update.AppUpdatePermission
+import dev.errnolink.tsuzuki.update.CheckResult
+import dev.errnolink.tsuzuki.update.UpdatePreferences
+import eu.kanade.tachiyomi.util.system.toast
+import kotlinx.coroutines.launch
+import tachiyomi.core.common.i18n.stringResource
+import tachiyomi.presentation.core.util.collectAsState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
@@ -47,6 +61,12 @@ class TsuzukiAboutScreen : Screen() {
         val uriHandler = LocalUriHandler.current
         val handleBack = LocalBackPress.current
         val navigator = LocalNavigator.currentOrThrow
+        val updatePreferences = remember { Injekt.get<UpdatePreferences>() }
+        val autoUpdatePref = updatePreferences.autoUpdate()
+        val autoUpdateEnabled by autoUpdatePref.collectAsState()
+        val canInstall = remember(autoUpdateEnabled) { AppUpdatePermission.canInstallPackages(context) }
+        val coroutineScope = rememberCoroutineScope()
+        var isCheckingUpdate by remember { mutableStateOf(false) }
         SettingsScaffold(
             title = stringResource(MR.strings.pref_category_about),
             navigateUp = handleBack?.let { { it() } },
@@ -56,13 +76,49 @@ class TsuzukiAboutScreen : Screen() {
             }
             item(key = "about-rows") {
                 InsetGroupedList {
+                    SwitchPreferenceWidget(
+                        title = "Auto-update app",
+                        subtitle = if (!canInstall) "Requires permission to install apps from unknown sources" else null,
+                        checked = autoUpdateEnabled,
+                        onCheckedChanged = { enabled ->
+                            autoUpdatePref.set(enabled)
+                            if (enabled && !AppUpdatePermission.canInstallPackages(context)) {
+                                AppUpdatePermission.openInstallPermissionSettings(context)
+                            }
+                        },
+                        divider = true,
+                    )
+                    GroupDivider()
                     PreferenceRow(
-                        title = stringResource(MR.strings.version),
+                        title = stringResource(MR.strings.check_for_updates),
                         subtitle = getVersionName(withBuildDate = true),
                         divider = true,
                         onClick = {
-                            val deviceInfo = CrashLogUtil(context).getDebugInfo()
-                            context.copyToClipboard("Debug information", deviceInfo)
+                            if (isCheckingUpdate) return@PreferenceRow
+                            isCheckingUpdate = true
+                            coroutineScope.launch {
+                                try {
+                                    context.toast("Checking for updates...")
+                                    val checker = AppUpdateChecker()
+                                    when (val result = checker.checkForUpdate(isUserPrompt = true)) {
+                                        is CheckResult.NewUpdate -> {
+                                            context.toast("New update available: ${result.candidate.versionName}")
+                                            if (!AppUpdatePermission.canInstallPackages(context)) {
+                                                AppUpdatePermission.openInstallPermissionSettings(context)
+                                            }
+                                            AppDownloadWorker.start(context, result.candidate.downloadUrl)
+                                        }
+                                        is CheckResult.NoNewUpdate -> {
+                                            context.toast(context.stringResource(MR.strings.update_check_no_new_updates))
+                                        }
+                                        is CheckResult.Error -> {
+                                            context.toast(context.stringResource(MR.strings.update_check_notification_download_error))
+                                        }
+                                    }
+                                } finally {
+                                    isCheckingUpdate = false
+                                }
+                            }
                         },
                     )
                     GroupDivider()

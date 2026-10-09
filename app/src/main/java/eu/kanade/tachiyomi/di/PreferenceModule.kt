@@ -79,5 +79,9 @@ class PreferenceModule(val app: Application) : InjektModule {
         addSingletonFactory {
             SyncPreferences(get())
         }
+
+        addSingletonFactory {
+            dev.errnolink.tsuzuki.update.UpdatePreferences(get())
+        }
     }
 }

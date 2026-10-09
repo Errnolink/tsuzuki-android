@@ -209,7 +209,7 @@ Upstream files that differ from `vendor/komikku` for UI routing. Function = wher
 | `extension/ExtensionManager.kt` | `InstallationListener` | records installs/updates and deliberate uninstalls into the ext-sync store |
 | `eu/kanade/domain/sync/SyncPreferences.kt` | `syncExtensions`/`syncUninstalls` | ext-sync preferences (both default on) |
 | `eu/kanade/domain/base/ExtensionInstallerPreference.kt` | `defaultValue` | default installer is `PRIVATE` for new installs (Decision 5.5) |
-| `App.kt` | `onCreate` | launches the wanted-extension reconcile on app start |
+| `App.kt` | `onCreate` | launches the wanted-extension reconcile and updater jobs on app start |
 
 Not routed (still upstream Material, listed by `tools/check-routes.py`): debug/about sub-screens, `SortTagScreen`/`SourceCategoryScreen`/`BiometricTimesScreen`, `WebViewScreen`, exh debug/search screens.
 

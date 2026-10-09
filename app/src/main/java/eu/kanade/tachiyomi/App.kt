@@ -36,6 +36,7 @@ import com.elvishew.xlog.printer.file.backup.NeverBackupStrategy
 import com.elvishew.xlog.printer.file.naming.DateFileNameGenerator
 import dev.mihon.injekt.patchInjekt
 import dev.errnolink.tsuzuki.sync.ExtensionSync
+import dev.errnolink.tsuzuki.update.AppUpdateJob
 import eu.kanade.domain.DomainModule
 import eu.kanade.domain.KMKDomainModule
 import eu.kanade.domain.SYDomainModule
@@ -205,6 +206,8 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
             setupExhLogging()
             Migrator.await()
             ExtensionSync.launchOnAppStart()
+            AppUpdateJob.setupDailyTask(this@App)
+            AppUpdateJob.checkOnAppStart(this@App)
             WidgetManager(Injekt.get(), Injekt.get()).apply { init(scope) }
             val syncPreferences: SyncPreferences = Injekt.get()
             val syncTriggerOpt = syncPreferences.getSyncTriggerOptions()
